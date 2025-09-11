@@ -5,10 +5,10 @@ CFLAGS =-I$(IDIR) -O2 -Wall
 ODIR=obj
 LDIR=lib
 
-_DEPS = 
+_DEPS = hash.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-_OBJ = main.o 
+_OBJ = main.o hash.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 $(ODIR)/%.o: src/%.c $(DEPS)
