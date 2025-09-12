@@ -18,5 +18,7 @@
 
 uint8_t *get_message_block(FILE *file_ptr, uint64_t *block_size);
 void print_message_block(uint8_t *message_block, uint64_t block_size);
+uint32_t right_rotate(uint32_t word, uint32_t n);
+uint32_t sigma(uint32_t word, uint32_t n1, uint32_t n2, uint32_t n3);
 
 #endif // !HASH_H

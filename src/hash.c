@@ -56,3 +56,24 @@ void print_message_block(uint8_t *message_block, uint64_t message_block_size) {
     }
   }
 }
+
+uint32_t right_rotate(uint32_t word, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    uint32_t rightmost_bit_pos = 31;
+    uint32_t mask = 1 << rightmost_bit_pos;
+    uint32_t rightmost_bit = (word & mask) >> rightmost_bit_pos;
+
+    word >>= 1; // Rightshift word by 1
+
+    uint32_t leftmost_bit_pos = 0;
+    mask = rightmost_bit << leftmost_bit_pos;
+
+    word |= mask;
+  }
+  return word;
+}
+
+uint32_t sigma(uint32_t word, uint32_t n1, uint32_t n2, uint32_t n3) {
+  return right_rotate(word, n1) ^ right_rotate(word, n2) ^
+         right_rotate(word, n3);
+}
