@@ -8,6 +8,7 @@
 
 #define CHUNK_SIZE 64
 #define BLOCK_APPENDIX_LENGTH 8
+#define MESSAGE_SCHEDULE_LENGTH 64
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
 #define BYTE_TO_BINARY(byte)                                                   \
@@ -20,5 +21,5 @@ uint8_t *get_message_block(FILE *file_ptr, uint64_t *block_size);
 void print_message_block(uint8_t *message_block, uint64_t block_size);
 uint32_t right_rotate(uint32_t word, uint32_t n);
 uint32_t sigma(uint32_t word, uint32_t n1, uint32_t n2, uint32_t n3);
-
+void decompose_blocks(uint8_t *message_block, uint64_t block_size);
 #endif // !HASH_H
