@@ -58,20 +58,8 @@ void print_message_block(uint8_t *message_block, uint64_t message_block_size) {
   }
 }
 
-uint32_t right_rotate(uint32_t word, uint32_t n) {
-  for (uint32_t i = 0; i < n; i++) {
-    uint32_t rightmost_bit_pos = 31;
-    uint32_t mask = 1 << rightmost_bit_pos;
-    uint32_t rightmost_bit = (word & mask) >> rightmost_bit_pos;
-
-    word >>= 1; // Rightshift word by 1
-
-    uint32_t leftmost_bit_pos = 0;
-    mask = rightmost_bit << leftmost_bit_pos;
-
-    word |= mask;
-  }
-  return word;
+static inline uint32_t right_rotate(uint32_t word, uint32_t n) {
+  return (word >> n) | (word << (32 - n));
 }
 
 uint32_t sigma(uint32_t word, uint32_t n1, uint32_t n2, uint32_t n3) {
@@ -79,28 +67,32 @@ uint32_t sigma(uint32_t word, uint32_t n1, uint32_t n2, uint32_t n3) {
          right_rotate(word, n3);
 }
 
-void decompose_block(uint8_t *message_block, uint64_t block_size) {
-  uint64_t num_chunks = block_size / CHUNK_SIZE;
-  uint32_t message_schedule[MESSAGE_SCHEDULE_LENGTH];
-
-  for (uint64_t i = 0; i < num_chunks; i++) {
-    for (uint32_t j = 0; j < 16; j++) {
-      size_t idx = i * CHUNK_SIZE + j * 4;
-      uint8_t b1 = message_block[idx];
-      uint8_t b2 = message_block[idx + 1];
-      uint8_t b3 = message_block[idx + 2];
-      uint8_t b4 = message_block[idx + 3];
-      message_schedule[j] = ((uint32_t)b1 << 24) | ((uint32_t)b2 << 16) |
-                            ((uint32_t)b3 << 8) | (uint32_t)b4;
-    }
-    for (uint32_t j = 16; j < MESSAGE_SCHEDULE_LENGTH; j++) {
-      size_t idx = j - 16;
-      uint32_t word_1 = message_schedule[0 + idx];
-      uint32_t word_2 = message_schedule[1 + idx];
-      uint32_t word_3 = message_schedule[9 + idx];
-      uint32_t word_4 = message_schedule[14 + idx];
-      message_schedule[j] =
-          word_1 + sigma(word_2, 7, 18, 3) + word_3 + sigma(word_4, 17, 19, 10);
-    }
+void decompose_block(uint64_t chunk_index, uint32_t *message_schedule,
+                     uint8_t *message_block, uint64_t block_size) {
+  for (uint32_t j = 0; j < 16; j++) {
+    size_t idx = chunk_index * CHUNK_SIZE + j * 4;
+    uint8_t b1 = message_block[idx];
+    uint8_t b2 = message_block[idx + 1];
+    uint8_t b3 = message_block[idx + 2];
+    uint8_t b4 = message_block[idx + 3];
+    message_schedule[j] = ((uint32_t)b1 << 24) | ((uint32_t)b2 << 16) |
+                          ((uint32_t)b3 << 8) | (uint32_t)b4;
   }
+  for (uint32_t j = 16; j < MESSAGE_SCHEDULE_LENGTH; j++) {
+    size_t idx = j - 16;
+    uint32_t word_1 = message_schedule[0 + idx];
+    uint32_t word_2 = message_schedule[1 + idx];
+    uint32_t word_3 = message_schedule[9 + idx];
+    uint32_t word_4 = message_schedule[14 + idx];
+    message_schedule[j] =
+        word_1 + sigma(word_2, 7, 18, 3) + word_3 + sigma(word_4, 17, 19, 10);
+  }
+}
+
+uint32_t choice(uint32_t w1, uint32_t w2, uint32_t w3) {
+  return (w1 & w2) ^ ((~w1) & w3);
+}
+
+uint32_t majority(uint32_t w1, uint32_t w2, uint32_t w3) {
+  return (w1 & w2) ^ (w1 & w3) ^ (w2 & w3);
 }
