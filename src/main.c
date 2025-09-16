@@ -12,12 +12,18 @@ int main(int argc, char *argv[]) {
 
   FILE *file_ptr = fopen(argv[1], "rb");
   if (file_ptr == NULL) {
-    perror("File not found");
+    fprintf(stderr, "File not found\n");
     return EXIT_FAILURE;
   }
 
   uint64_t message_size;
   uint8_t *message_block = get_message_block(file_ptr, &message_size);
+  if (!message_block) {
+    fprintf(stderr, "Failed to read message block\n");
+    fclose(file_ptr);
+    return EXIT_FAILURE;
+  }
+
   print_message_block(message_block, message_size);
 
   uint64_t num_chunks = message_size / CHUNK_SIZE;

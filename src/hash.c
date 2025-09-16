@@ -12,18 +12,18 @@ uint8_t *get_message_block(FILE *file_ptr, uint64_t *message_size) {
 
   printf("Data size: %llu bytes\n", data_size);
 
-  const uint64_t message_message_size =
+  const uint64_t message_block_size =
       ((data_size + 1 + BLOCK_APPENDIX_LENGTH + CHUNK_SIZE - 1) / CHUNK_SIZE) *
       CHUNK_SIZE;
 
-  printf("Message block size: %llu bytes\n\n", message_message_size);
+  printf("Message block size: %llu bytes\n\n", message_block_size);
 
-  uint8_t *message_block = (uint8_t *)malloc(message_message_size);
+  uint8_t *message_block = (uint8_t *)malloc(message_block_size);
   if (!message_block) {
     perror("malloc failed");
     return NULL;
   }
-  memset(message_block, 0, message_message_size);
+  memset(message_block, 0, message_block_size);
 
   for (uint64_t i = 0; i < data_size; i++) {
     if (fread(message_block + i, 1, 1, file_ptr) != 1) {
@@ -38,7 +38,7 @@ uint8_t *get_message_block(FILE *file_ptr, uint64_t *message_size) {
   // Append length (in bits) as 64-bit big-endian
   const uint64_t bit_length = data_size * 8;
   for (int i = 0; i < 8; i++) {
-    message_block[message_message_size - 8 + i] =
+    message_block[message_block_size - 8 + i] =
         (bit_length >> (8 * (7 - i))) & 0xFF;
   }
 
@@ -46,11 +46,10 @@ uint8_t *get_message_block(FILE *file_ptr, uint64_t *message_size) {
   return message_block;
 }
 
-void print_message_block(uint8_t *message_block,
-                         uint64_t message_message_size) {
+void print_message_block(uint8_t *message_block, uint64_t message_block_size) {
 
   printf("Message block: \n");
-  for (uint64_t i = 0; i < message_message_size; i++) {
+  for (uint64_t i = 0; i < message_block_size; i++) {
     printf(BYTE_TO_BINARY_PATTERN " ", BYTE_TO_BINARY(message_block[i]));
 
     if ((i + 1) % 4 == 0) {
