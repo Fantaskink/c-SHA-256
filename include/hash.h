@@ -17,8 +17,5 @@ typedef struct {
 } SHA256_Ctx;
 
 void sha256_init(SHA256_Ctx *ctx);
-uint8_t *get_message_block(FILE *file_ptr, uint64_t *block_size);
-void print_message_block(uint8_t *message_block, uint64_t block_size);
-void decompose_block(uint64_t chunk_index, uint32_t *message_schedule,
-                     uint8_t *message_block, uint64_t block_size);
+void sha256_update(SHA256_Ctx *ctx, const uint8_t *data, size_t len);
 #endif // !HASH_H

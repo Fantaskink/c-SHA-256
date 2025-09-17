@@ -105,7 +105,46 @@ static inline uint32_t sigma1(uint32_t x) {
   return right_rotate(x, 17) ^ right_rotate(x, 19) ^ (x >> 10);
 }
 
-void compute_hash(SHA256_Ctx *ctx, uint32_t *message_schedule) {}
+static inline uint32_t Sigma0(uint32_t x) {
+  return right_rotate(x, 2) ^ right_rotate(x, 13) ^ (x >> 22);
+}
+
+static inline uint32_t Sigma1(uint32_t x) {
+  return right_rotate(x, 6) ^ right_rotate(x, 11) ^ (x >> 25);
+}
+
+static inline uint32_t choice(uint32_t w1, uint32_t w2, uint32_t w3) {
+  return (w1 & w2) ^ ((~w1) & w3);
+}
+
+static inline uint32_t majority(uint32_t w1, uint32_t w2, uint32_t w3) {
+  return (w1 & w2) ^ (w1 & w3) ^ (w2 & w3);
+}
+
+void compute_hash(SHA256_Ctx *ctx, uint32_t *message_schedule) {
+  uint32_t a = H0[0];
+  uint32_t b = H0[1];
+  uint32_t c = H0[2];
+  uint32_t d = H0[3];
+  uint32_t e = H0[4];
+  uint32_t f = H0[5];
+  uint32_t g = H0[6];
+  uint32_t h = H0[7];
+
+  for (uint32_t i = 0; i < MESSAGE_SCHEDULE_LENGTH; i++) {
+    uint32_t Temp1 =
+        h + Sigma1(e) + choice(e, f, g) + K[i] + message_schedule[i];
+    uint32_t Temp2 = Sigma0(a) + majority(a, b, c);
+    h = g;
+    g = f;
+    f = e;
+    e = d + Temp1;
+    d = c;
+    c = b;
+    b = a;
+    a = Temp1 + Temp2;
+  }
+}
 
 void sha256_update(SHA256_Ctx *ctx, const uint8_t *data, size_t len) {
   for (size_t i = 0; i < len; i++) {
@@ -137,12 +176,4 @@ void decompose_block(uint64_t chunk_index, uint32_t *message_schedule,
         sigma1(message_schedule[j - 2]) + message_schedule[j - 7] +
         sigma0(message_schedule[j - 15]) + message_schedule[j - 16];
   }
-}
-
-static inline uint32_t choice(uint32_t w1, uint32_t w2, uint32_t w3) {
-  return (w1 & w2) ^ ((~w1) & w3);
-}
-
-static inline uint32_t majority(uint32_t w1, uint32_t w2, uint32_t w3) {
-  return (w1 & w2) ^ (w1 & w3) ^ (w2 & w3);
 }
