@@ -16,6 +16,14 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  SHA256_Ctx ctx;
+  sha256_init(&ctx);
+
+  uint8_t buffer[1024];
+  size_t bytes_read;
+  while ((bytes_read = fread(buffer, 1, sizeof(buffer), file_ptr)) > 0) {
+    sha256_update(&ctx, buffer, bytes_read);
+  }
   uint64_t message_size;
   uint8_t *message_block = get_message_block(file_ptr, &message_size);
   if (!message_block) {
