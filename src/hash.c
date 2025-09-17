@@ -36,53 +36,8 @@ void sha256_init(SHA256_Ctx *ctx) {
   memset(ctx->data, 0, sizeof(ctx->data));
 }
 
-uint8_t *get_message_block(FILE *file_ptr, uint64_t *message_size) {
-  if (!file_ptr || !message_size) {
-    return NULL;
-  }
-
-  fseek(file_ptr, 0L, SEEK_END);
-  const uint64_t data_size = ftell(file_ptr);
-  rewind(file_ptr);
-
-  printf("Data size: %" PRIu64 " bytes\n", data_size);
-
-  const uint64_t message_block_size =
-      ((data_size + 1 + BLOCK_APPENDIX_LENGTH + CHUNK_SIZE - 1) / CHUNK_SIZE) *
-      CHUNK_SIZE;
-
-  printf("Message block size: %" PRIu64 " bytes\n\n", message_block_size);
-
-  uint8_t *message_block = (uint8_t *)malloc(message_block_size);
-  if (!message_block) {
-    perror("malloc failed");
-    return NULL;
-  }
-  memset(message_block, 0, message_block_size);
-
-  for (uint64_t i = 0; i < data_size; i++) {
-    if (fread(message_block + i, 1, 1, file_ptr) != 1) {
-      perror("Read error");
-      return NULL;
-    }
-  }
-
-  // Append the 1 bit (0x80 at the first unused byte)
-  message_block[data_size] = 0x80;
-
-  // Append length (in bits) as 64-bit big-endian
-  const uint64_t bit_length = data_size * 8;
-  for (int i = 0; i < 8; i++) {
-    message_block[message_block_size - 8 + i] =
-        (bit_length >> (8 * (7 - i))) & 0xFF;
-  }
-
-  *message_size = message_block_size;
-  return message_block;
-}
-
-void print_message_block(uint8_t *message_block, uint64_t message_block_size) {
-
+void print_message_block(const uint8_t *message_block,
+                         const uint64_t message_block_size) {
   printf("Message block: \n");
   for (uint64_t i = 0; i < message_block_size; i++) {
     printf(BYTE_TO_BINARY_PATTERN " ", BYTE_TO_BINARY(message_block[i]));
@@ -122,14 +77,14 @@ static inline uint32_t majority(uint32_t w1, uint32_t w2, uint32_t w3) {
 }
 
 void compute_hash(SHA256_Ctx *ctx, uint32_t *message_schedule) {
-  uint32_t a = H0[0];
-  uint32_t b = H0[1];
-  uint32_t c = H0[2];
-  uint32_t d = H0[3];
-  uint32_t e = H0[4];
-  uint32_t f = H0[5];
-  uint32_t g = H0[6];
-  uint32_t h = H0[7];
+  uint32_t a = ctx->state[0];
+  uint32_t b = ctx->state[1];
+  uint32_t c = ctx->state[2];
+  uint32_t d = ctx->state[3];
+  uint32_t e = ctx->state[4];
+  uint32_t f = ctx->state[5];
+  uint32_t g = ctx->state[6];
+  uint32_t h = ctx->state[7];
 
   for (uint32_t i = 0; i < MESSAGE_SCHEDULE_LENGTH; i++) {
     uint32_t Temp1 =
@@ -144,20 +99,14 @@ void compute_hash(SHA256_Ctx *ctx, uint32_t *message_schedule) {
     b = a;
     a = Temp1 + Temp2;
   }
-}
-
-void sha256_update(SHA256_Ctx *ctx, const uint8_t *data, size_t len) {
-  for (size_t i = 0; i < len; i++) {
-    ctx->data[ctx->data_length] = data[i];
-    ctx->data_length++;
-    if (ctx->data_length == 64) {
-      uint32_t message_schedule[64];
-      decompose_block(0, message_schedule, ctx->data, 64);
-      compute_hash(ctx, message_schedule);
-      ctx->bit_length += 512; // processed 512 bits
-      ctx->data_length = 0;
-    }
-  }
+  ctx->state[0] += a;
+  ctx->state[1] += b;
+  ctx->state[2] += c;
+  ctx->state[3] += d;
+  ctx->state[4] += e;
+  ctx->state[5] += f;
+  ctx->state[6] += g;
+  ctx->state[7] += h;
 }
 
 void decompose_block(uint64_t chunk_index, uint32_t *message_schedule,
@@ -176,4 +125,63 @@ void decompose_block(uint64_t chunk_index, uint32_t *message_schedule,
         sigma1(message_schedule[j - 2]) + message_schedule[j - 7] +
         sigma0(message_schedule[j - 15]) + message_schedule[j - 16];
   }
+}
+
+void sha256_update(SHA256_Ctx *ctx, const uint8_t *data, size_t len) {
+  for (size_t i = 0; i < len; i++) {
+    ctx->data[ctx->data_length++] = data[i];
+    if (ctx->data_length == 64) {
+      uint32_t message_schedule[64];
+      decompose_block(0, message_schedule, ctx->data, 64);
+#ifdef DEBUG
+      print_message_block(data, len);
+#endif /* ifdef DEBUG */
+      compute_hash(ctx, message_schedule);
+      ctx->data_length = 0;
+    }
+  }
+  ctx->bit_length += len * 8;
+}
+
+uint64_t sha256_final(SHA256_Ctx *ctx, uint8_t *hash) {
+  size_t i = ctx->data_length;
+
+  // Step 1: append the 0x80 bit
+  ctx->data[i++] = 0x80;
+
+  // Step 2: if not enough space for length (8 bytes), pad this block and
+  // process
+  if (i > 56) {
+    while (i < 64)
+      ctx->data[i++] = 0x00;
+    uint32_t message_schedule[64];
+    decompose_block(0, message_schedule, ctx->data, 64);
+    compute_hash(ctx, message_schedule);
+    i = 0;
+  }
+
+  // Step 3: pad with zeros until 56 bytes
+  while (i < 56)
+    ctx->data[i++] = 0x00;
+
+  // Step 4: append the 64-bit big-endian length
+  uint64_t bit_len = ctx->bit_length;
+  for (int j = 7; j >= 0; j--) {
+    ctx->data[i++] = (uint8_t)(bit_len >> (8 * j));
+  }
+
+  // Step 5: final block
+  uint32_t message_schedule[64];
+  decompose_block(0, message_schedule, ctx->data, 64);
+  compute_hash(ctx, message_schedule);
+
+  // Step 6: produce the hash
+  for (int j = 0; j < 8; j++) {
+    hash[j * 4 + 0] = (ctx->state[j] >> 24) & 0xff;
+    hash[j * 4 + 1] = (ctx->state[j] >> 16) & 0xff;
+    hash[j * 4 + 2] = (ctx->state[j] >> 8) & 0xff;
+    hash[j * 4 + 3] = (ctx->state[j]) & 0xff;
+  }
+
+  return 32; // SHA-256 always 32 bytes
 }

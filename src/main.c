@@ -25,6 +25,14 @@ int main(int argc, char *argv[]) {
     sha256_update(&ctx, buffer, bytes_read);
   }
 
+  uint8_t hash[32];
+  uint64_t hash_length = sha256_final(&ctx, hash);
+
+  for (int i = 0; i < 32; i++) {
+    printf("%02x", hash[i]); // print hash as hex
+  }
+  printf("\n");
+
   fclose(file_ptr);
   return EXIT_SUCCESS;
 }
